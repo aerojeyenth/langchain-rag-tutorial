@@ -6,8 +6,14 @@ from langchain.vectorstores.chroma import Chroma
 import os
 import shutil
 
+from langchain.document_loaders.pdf import PyPDFDirectoryLoader
+
+from langchain_community.document_loaders import AzureAIDocumentIntelligenceLoader
+
+from get_embedding_function import get_embedding_function
+
 CHROMA_PATH = "chroma"
-DATA_PATH = "data/books"
+DATA_PATH = "data/pdf"
 
 
 def main():
@@ -21,15 +27,21 @@ def generate_data_store():
 
 
 def load_documents():
-    loader = DirectoryLoader(DATA_PATH, glob="*.md")
-    documents = loader.load()
-    return documents
+    # document_loader = PyPDFDirectoryLoader(DATA_PATH)
+    file_path = "<filepath>"
+    endpoint = "<endpoint>"
+    key = "<key>"
+    loader = AzureAIDocumentIntelligenceLoader(
+    api_endpoint=endpoint, api_key=key, file_path=file_path, api_model="prebuilt-layout"
+)
+
+    return loader.load()
 
 
 def split_text(documents: list[Document]):
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=300,
-        chunk_overlap=100,
+        chunk_size=1000,
+        chunk_overlap=300,
         length_function=len,
         add_start_index=True,
     )
@@ -48,10 +60,10 @@ def save_to_chroma(chunks: list[Document]):
     if os.path.exists(CHROMA_PATH):
         shutil.rmtree(CHROMA_PATH)
 
-    # Create a new DB from the documents.
-    db = Chroma.from_documents(
-        chunks, OpenAIEmbeddings(), persist_directory=CHROMA_PATH
+    db = Chroma(
+        persist_directory=CHROMA_PATH, embedding_function=get_embedding_function()
     )
+    db.add_documents(chunks)
     db.persist()
     print(f"Saved {len(chunks)} chunks to {CHROMA_PATH}.")
 
